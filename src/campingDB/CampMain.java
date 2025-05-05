@@ -9,20 +9,17 @@ public class CampMain {
 		
 		try {
 			Class.forName("com.mysql.cj.jdbc.Driver"); // MySQL 드라이버 로드
-			conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/dev_campDB", "root",""); // JDBC 연결
+			conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/mydb", "root",""); // JDBC 연결
 			System.out.println("DB 연결 완료");
 			
 			stmt = conn.createStatement(); // SQL문 처리용 Statement 객체 생성
-//			stmt.executeUpdate("INSERT into User (user_id, user_name, user_age) values (2, '이윤담', 23);"); // 레코드 추가
+			stmt.executeUpdate("INSERT INTO user VALUES (1, 1001, 'user1', 'pass1', 'User1', 'UserAddr1', '010-1307-5883', 'user1@example.com', '2022-12-21', 'AB-1006')"); // 레코드 추가
 			printTable(stmt);
+			
+			//위의 삽입한 데이터 삭제하기.
+//			stmt.executeUpdate("DELETE FROM User WHERE User_id = 1");
+//			printTable(stmt);
 
-//			printTable(stmt);
-//			
-//			stmt.executeUpdate("update 고객 set 고객이름='홍길동' where 고객아이디='mango'"); //데이터 수정
-//			printTable(stmt);
-//			
-//			stmt.executeUpdate("delete from 고객 where 고객이름='홍길동'"); // 레코드 삭제
-//			printTable(stmt);
 		} catch (ClassNotFoundException e) {
 			System.out.println("JDBC 드라이버 로드 오류");
 		} catch (SQLException e) {
@@ -32,11 +29,10 @@ public class CampMain {
 	}
 	// 레코드의 각 열의 값 화면에 출력
 	private static void printTable(Statement stmt) throws SQLException {
-		ResultSet srs = stmt.executeQuery("select * from User");
+		ResultSet srs = stmt.executeQuery("select * from user");
 		while (srs.next()) {
 			System.out.print(srs.getString("user_id"));
 			System.out.print("\t|\t" + srs.getString("user_name"));
-//			System.out.println("\t|\t" + srs.getString("user_age"));
 		}
 		System.out.println("=========================================");
 	}
