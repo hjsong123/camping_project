@@ -404,4 +404,3 @@ where company_id < 13;
 delete from User
 where User_id < 13;
 -- 지우는 순서는 어지간하면 바꾸지 말 것! => 참조 관계 따라 우선 지워야하는 것이 있음.
-
