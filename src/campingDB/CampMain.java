@@ -33,6 +33,7 @@ public class CampMain {
 		while (srs.next()) {
 			System.out.print(srs.getString("user_id"));
 			System.out.print("\t|\t" + srs.getString("user_name"));
+			System.out.println("");
 		}
 		System.out.println("=========================================");
 	}
