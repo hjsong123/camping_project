@@ -13,7 +13,7 @@ public class CampMain {
 			System.out.println("DB 연결 완료");
 			
 			stmt = conn.createStatement(); // SQL문 처리용 Statement 객체 생성
-			stmt.executeUpdate("INSERT INTO user VALUES (1, 1001, 'user1', 'pass1', 'User1', 'UserAddr1', '010-1307-5883', 'user1@example.com', '2022-12-21', 'AB-1006')"); // 레코드 추가
+//			stmt.executeUpdate("INSERT INTO user VALUES (1, 1001, 'user1', 'pass1', 'User1', 'UserAddr1', '010-1307-5883', 'user1@example.com', '2022-12-21', 'AB-1006')"); // 레코드 추가
 			printTable(stmt);
 			
 			//위의 삽입한 데이터 삭제하기.
