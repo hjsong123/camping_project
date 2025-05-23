@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="src" path="build/java"/>
+	<classpathentry kind="src" path="demo/java"/>
+	<classpathentry kind="src" path="generated/java"/>
+	<classpathentry kind="src" path="legacy/java"/>
+	<classpathentry kind="src" path="main/core-api/java"/>
+	<classpathentry kind="src" path="main/core-impl/java"/>
+	<classpathentry kind="src" path="main/protocol-impl/java"/>
+	<classpathentry kind="src" path="main/user-api/java"/>
+	<classpathentry kind="src" path="main/user-impl/java"/>
+	<classpathentry kind="src" path="test/java"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
