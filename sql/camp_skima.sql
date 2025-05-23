@@ -12,7 +12,22 @@ SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,N
 -- Schema mydb
 -- -----------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS `mydb` DEFAULT CHARACTER SET utf8 ;
+drop database if exists mydb;
+create database if not exists mydb;
 USE `mydb` ;
+
+CREATE USER IF NOT EXISTS 'user1'@'localhost' IDENTIFIED BY 'user1';
+grant all privileges on mydb.* to user1@localhost;
+
+drop table if exists camping_company;
+drop table if exists camping_car;
+drop table if exists car_fixlog;
+drop table if exists car_item;
+drop table if exists car_repair_shop;
+drop table if exists employee;
+drop table if exists rental;
+drop table if exists repair;
+drop table if exists user;
 
 -- -----------------------------------------------------
 -- Table `mydb`.`camping_company`
@@ -85,7 +100,7 @@ CREATE TABLE IF NOT EXISTS `mydb`.`car_fixlog` (
     ON UPDATE RESTRICT,
   CONSTRAINT `fix_item_id`
     FOREIGN KEY (`fix_item_id`)
-    REFERENCES `mydb`.`car_item_` (`item_id`)
+    REFERENCES `mydb`.`car_item` (`item_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -366,43 +381,37 @@ VALUES
 (11, 11, 11, 11, 11, '냉방장치 점검', '2023-05-15', 29300, '2023-05-30', '성능저하로 점검'),
 (12, 12, 4, 9, 12, '히터 고장 수리', '2020-12-01', 33800, '2020-12-18', '부품 교체 포함');
 
-SELECT * FROM Camping_car;
-SELECT * FROM Camping_company;
-SELECT * FROM Car_item;
-SELECT * FROM Car_fixlog;
-SELECT * FROM user;
-SELECT * FROM rental;
-SELECT * FROM employee;
-SELECT * FROM car_repair_shop;
-SELECT * FROM repair;
+-- SELECT * FROM Camping_car;
+-- SELECT * FROM Camping_company;
+-- SELECT * FROM Car_item;
+-- SELECT * FROM Car_fixlog;
+-- SELECT * FROM user;
+-- SELECT * FROM rental;
+-- SELECT * FROM employee;
+-- SELECT * FROM car_repair_shop;
+-- SELECT * FROM repair;
 
 -- 지우는 순서는 어지간하면 바꾸지 말 것! => 참조 관계 따라 우선 지워야하는 것이 있음.
-delete from employee
-where employee_id < 13;
+-- delete from employee;
 
-delete from repair
-where repair_id < 13;
+-- delete from repair;
 
-delete from car_repair_shop
-where repair_shop_id < 13;
+-- delete from car_repair_shop;
 
-delete from rental
-where rental_id < 13;
+-- delete from rental;
 
-delete from car_item
-where item_id < 13;
+-- delete from car_item;
 
-delete from car_fixlog
-where fix_id < 13;
+-- delete from car_fixlog;
 
-delete from camping_car
-where car_id < 13;
+-- delete from camping_car
+-- where car_id < 13;
 
-delete from camping_company
-where company_id < 13;
+-- delete from camping_company
+-- where company_id < 13;
 
-delete from User
-where User_id < 13;
+-- delete from User
+-- where User_id < 13;
 -- 지우는 순서는 어지간하면 바꾸지 말 것! => 참조 관계 따라 우선 지워야하는 것이 있음.
 
--- drop database mydb; 
+-- drop database mydb;
