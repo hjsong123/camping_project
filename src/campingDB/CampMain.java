@@ -17,9 +17,11 @@ public class CampMain {
 			conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/mydb", "root",""); // JDBC 연결
 			System.out.println("DB 연결 완료");
 			
+
 			stmt = conn.createStatement(); // SQL문 처리용 Statement 객체 생성(Test용)
 //			stmt.executeUpdate("INSERT INTO user VALUES (1, 1001, 'user1', 'pass1', 'User1', 'UserAddr1', '010-1307-5883', 'user1@example.com', '2022-12-21', 'AB-1006')"); // 레코드 추가
 //			stmt.executeUpdate("INSERT INTO user VALUES (2, 1002, 'user2', 'pass2', 'User2', 'UserAddr2', '010-1185-8570', 'user2@example.com', '2020-08-27', 'AB-1010')");
+
 			printTable(stmt);
 			
 			
