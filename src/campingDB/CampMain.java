@@ -17,7 +17,7 @@ public class CampMain {
 			printTable(stmt);
 			
 			//위의 삽입한 데이터 삭제하기.
-//			stmt.executeUpdate("DELETE FROM User WHERE User_id = 1");
+			stmt.executeUpdate("DELETE FROM User WHERE User_id = 1");
 //			printTable(stmt);
 
 		} catch (ClassNotFoundException e) {
