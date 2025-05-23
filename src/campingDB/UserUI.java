@@ -2,13 +2,19 @@ package campingDB;
 
 import javax.swing.*;
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 public class UserUI extends JFrame {
-    public UserUI(int userId) {
+    public UserUI(int userId, Connection conn) {
         setTitle("사용자 기능 패널 - ID: " + userId);
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        
+        Statement stmt = null;
 
         JTabbedPane tabs = new JTabbedPane();
 
@@ -93,4 +99,13 @@ public class UserUI extends JFrame {
         add(tabs);
         setVisible(true);
     }
+    private static void printTable(Statement stmt) throws SQLException {
+		ResultSet srs = stmt.executeQuery("select * from user");
+		while (srs.next()) {
+			System.out.print(srs.getString("user_id"));
+			System.out.print("\t|\t" + srs.getString("user_name"));
+			System.out.println("");
+		}
+		System.out.println("=========================================");
+	}
 }

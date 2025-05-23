@@ -18,6 +18,7 @@ public class AdminUI extends JFrame {
         JButton initDBButton = new JButton("데이터베이스 초기화");
         initPanel.add(initDBButton);
         tabs.addTab("DB 초기화", initPanel);
+        
 
         // 2. 데이터 입력 / 삭제 / 변경
         JPanel crudPanel = new JPanel(new GridLayout(4, 2, 10, 10));
