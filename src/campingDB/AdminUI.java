@@ -1,11 +1,14 @@
 package campingDB;
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -60,24 +63,122 @@ public class AdminUI extends JFrame {
         });
 
         // 2. 데이터 입력 / 삭제 / 변경
+        JButton insert = new JButton("입력");
+        JButton del_up = new JButton("삭제/변경");
+        JTextField input1 = new JTextField();
+        JTextField input2 = new JTextField();
+        
         JPanel crudPanel = new JPanel(new GridLayout(4, 2, 10, 10));
         crudPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         crudPanel.add(new JLabel("테이블명:"));
-        crudPanel.add(new JTextField());
+        crudPanel.add(input1);
         crudPanel.add(new JLabel("조건식 입력 (WHERE ...):"));
-        crudPanel.add(new JTextField());
-        crudPanel.add(new JButton("입력"));
-        crudPanel.add(new JButton("삭제"));
-        crudPanel.add(new JButton("변경"));
+        crudPanel.add(input2);
+        crudPanel.add(insert);
+        crudPanel.add(del_up);
+        
+        // 데이터 삽입 로직, 실행되지 않으면 안내문 출력
+        insert.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				Statement stmt = null;
+				String input = input1.getText();
+				String DEL_UP = input2.getText();
+				String[] parts = input.split("\\s+");  
+				
+				try {
+					stmt = conn.createStatement();
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+				}
+				
+				try {
+					if(DEL_UP == "" && (parts[0] == "insert" || parts[0] == "INSERT" )) {
+						stmt.executeUpdate(input);
+						JOptionPane.showMessageDialog(null, "성공적으로 저장되었습니다.");
+					}
+					else {
+						JOptionPane.showMessageDialog(null, "아래 조건을 지켜주세요\n1) 삽입은 조건절 없이 입력해주세요.\n2) 삽입문만 입력해주세요");
+					}
+				} catch (SQLException e1) {
+					JOptionPane.showMessageDialog(null, "형식에 맞지 않습니다. 다시 입력해주세요.");
+				}
+			}
+		});
+        
+     // 데이터 수정, 삭제 로직 맞지 않으면 안내문 띄우기
+        del_up.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				Statement stmt = null;
+				String INSERT = input1.getText();
+				String DEL_UP = input2.getText();
+				String sql = INSERT + " " + DEL_UP;
+				
+				try {
+					stmt = conn.createStatement();
+				} catch (SQLException e1) {
+					e1.printStackTrace();
+				}
+				
+				try {
+					stmt.executeUpdate(sql);
+					JOptionPane.showMessageDialog(null, "성공적으로 삭제/변경 되었습니다.");
+				} catch (SQLException e1) {
+					JOptionPane.showMessageDialog(null, "형식에 맞지 않습니다. 다시 입력해주세요.");
+				}
+			}
+		});
+        
         tabs.addTab("입력/삭제/변경", crudPanel);
 
         // 3. 전체 테이블 보기
+        String[] tableNames = {
+                "camping_company", "camping_car", "car_item",
+                "car_fixlog", "user", "rental", "employee",
+                "car_repair_shop", "repair"
+            };
+        
         JPanel viewAllPanel = new JPanel(new BorderLayout());
-        JButton viewAllBtn = new JButton("전체 테이블 보기");
-        JTable dummyTable = new JTable(10, 5); // 더미 테이블
-        viewAllPanel.add(viewAllBtn, BorderLayout.NORTH);
-        viewAllPanel.add(new JScrollPane(dummyTable), BorderLayout.CENTER);
+        JComboBox<String> tableSelector = new JComboBox<>(tableNames); // 테이블 선택
+        JButton viewBtn = new JButton("조회");
+        JTable resultTable = new JTable();
+        JScrollPane scrollPane = new JScrollPane(resultTable);
+
+        viewAllPanel.add(tableSelector, BorderLayout.NORTH);
+        viewAllPanel.add(viewBtn, BorderLayout.CENTER);
+        viewAllPanel.add(scrollPane, BorderLayout.SOUTH);
         tabs.addTab("전체 테이블 보기", viewAllPanel);
+        
+        viewBtn.addActionListener(e -> {
+            String selectedTable = (String) tableSelector.getSelectedItem();
+            try (Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery("SELECT * FROM " + selectedTable)) {
+
+                ResultSetMetaData meta = rs.getMetaData();
+                int colCount = meta.getColumnCount();
+
+                // 테이블 모델 생성
+                DefaultTableModel model = new DefaultTableModel();
+                for (int i = 1; i <= colCount; i++) {
+                    model.addColumn(meta.getColumnName(i));
+                }
+
+                while (rs.next()) {
+                    Object[] row = new Object[colCount];
+                    for (int i = 0; i < colCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    model.addRow(row);
+                }
+
+                resultTable.setModel(model);
+
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        });
 
         // 4. 캠핑카 및 정비 내역 보기
         JPanel vehiclePanel = new JPanel(new BorderLayout());
