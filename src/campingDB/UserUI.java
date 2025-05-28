@@ -1,9 +1,12 @@
 package campingDB;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+
 import java.awt.*;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -26,26 +29,113 @@ public class UserUI extends JFrame {
         viewCarsPanel.add(new JScrollPane(carsTable), BorderLayout.CENTER);
         tabs.addTab("캠핑카 조회", viewCarsPanel);
 
-        // 2. 대여 가능 일자 보기
-        JPanel availableDatesPanel = new JPanel(new BorderLayout());
-        JComboBox<String> carSelectBox = new JComboBox<>(new String[]{"캠핑카1", "캠핑카2"});
-        JButton showDatesBtn = new JButton("대여 가능 일자 보기");
-        JTextArea datesArea = new JTextArea(10, 40);
-        availableDatesPanel.add(carSelectBox, BorderLayout.NORTH);
-        availableDatesPanel.add(showDatesBtn, BorderLayout.CENTER);
-        availableDatesPanel.add(new JScrollPane(datesArea), BorderLayout.SOUTH);
-        tabs.addTab("대여 가능 일자", availableDatesPanel);
+     // 2-3 통합: 캠핑카 조회 + 대여 가능일 확인 + 등록
+        JPanel rentalPanel = new JPanel(new BorderLayout(10, 10));
+        JTable carTable = new JTable();
+        DefaultTableModel carModel = new DefaultTableModel();
+        carTable.setModel(carModel);
 
-        // 3. 대여 등록
-        JPanel rentPanel = new JPanel(new GridLayout(4, 2, 10, 10));
-        rentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        rentPanel.add(new JLabel("캠핑카 선택:"));
-        rentPanel.add(new JComboBox<>(new String[]{"캠핑카1", "캠핑카2"}));
-        rentPanel.add(new JLabel("대여일자:"));
-        rentPanel.add(new JTextField("YYYY-MM-DD"));
-        rentPanel.add(new JLabel());
-        rentPanel.add(new JButton("대여 등록"));
-        tabs.addTab("대여 등록", rentPanel);
+        JTextArea availableDates = new JTextArea(5, 40);
+        availableDates.setEditable(false);
+        availableDates.setBorder(BorderFactory.createTitledBorder("대여 가능 일자"));
+
+        JPanel formPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        JTextField rentDateField = new JTextField("YYYY-MM-DD");
+        JButton rentBtn = new JButton("대여 등록");
+        formPanel.setBorder(BorderFactory.createTitledBorder("대여 신청"));
+        formPanel.add(new JLabel("대여일자:"));
+        formPanel.add(rentDateField);
+        formPanel.add(new JLabel());
+        formPanel.add(rentBtn);
+
+        // 캠핑카 테이블 선택 시 → 대여 가능 일자 표시
+        carTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && carTable.getSelectedRow() != -1) {
+                String selectedCarName = (String) carTable.getValueAt(carTable.getSelectedRow(), 1); // car_name
+                try (Statement s = conn.createStatement()) {
+                    ResultSet rs = s.executeQuery(
+                        "SELECT car_date FROM camping_car WHERE car_name = '" + selectedCarName + "'"
+                    );
+                    if (rs.next()) {
+                        availableDates.setText("가능 시작일: " + rs.getDate("car_date").toString());
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                    availableDates.setText("조회 실패");
+                }
+            }
+        });
+
+        // 대여 등록 버튼 클릭 시 → rental 테이블 삽입
+        rentBtn.addActionListener(e -> {
+            int selectedRow = carTable.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(null, "캠핑카를 먼저 선택하세요.");
+                return;
+            }
+            String selectedCarName = (String) carTable.getValueAt(selectedRow, 1);
+            String dateStr = rentDateField.getText().trim();
+
+            try (Statement s = conn.createStatement()) {
+                ResultSet rs = s.executeQuery("SELECT car_id, car_company_id FROM camping_car WHERE car_name = '" + selectedCarName + "'");
+                if (rs.next()) {
+                    int carId = rs.getInt("car_id");
+                    int companyId = rs.getInt("car_company_id");
+
+                    String insertSql = String.format(
+                        "INSERT INTO rental (rental_id, rental_car_id, rental_car_company_id, rental_user_license, rental_start_day, rental_during, rental_price, rental_payment_due_date) " +
+                        "VALUES (NULL, %d, %d, %d, '%s', 3, 100000, '%s')",
+                        carId, companyId, userId, dateStr, dateStr
+                    );
+                    s.executeUpdate(insertSql);
+                    JOptionPane.showMessageDialog(null, "대여 등록 완료!");
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(null, "등록 실패: " + ex.getMessage());
+            }
+        });
+
+        // 캠핑카 목록 불러오기 버튼
+        JButton loadCarBtn = new JButton("캠핑카 목록 불러오기");
+        loadCarBtn.addActionListener(e -> {
+            try (Statement s = conn.createStatement();
+                 ResultSet rs = s.executeQuery("SELECT * FROM camping_car")) {
+                ResultSetMetaData meta = rs.getMetaData();
+                int colCount = meta.getColumnCount();
+
+                DefaultTableModel model = new DefaultTableModel();
+                for (int i = 1; i <= colCount; i++) {
+                    model.addColumn(meta.getColumnName(i));
+                }
+
+                while (rs.next()) {
+                    Object[] row = new Object[colCount];
+                    for (int i = 0; i < colCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    model.addRow(row);
+                }
+
+                carTable.setModel(model);
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(loadCarBtn, BorderLayout.NORTH);
+        topPanel.add(new JScrollPane(carTable), BorderLayout.CENTER);
+
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        bottomPanel.add(availableDates, BorderLayout.NORTH);
+        bottomPanel.add(formPanel, BorderLayout.CENTER);
+
+        rentalPanel.add(topPanel, BorderLayout.CENTER);
+        rentalPanel.add(bottomPanel, BorderLayout.SOUTH);
+
+        tabs.addTab("캠핑카 대여", rentalPanel);
+
 
         // 4. 내 대여 정보 보기
         JPanel myRentInfoPanel = new JPanel(new BorderLayout());

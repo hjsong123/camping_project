@@ -7,13 +7,16 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Vector;
 
 public class AdminUI extends JFrame {
-    public AdminUI(Connection conn) {
+    public AdminUI(Connection conn){
 		
         setTitle("관리자 기능 패널");
         setSize(800, 600);
@@ -79,11 +82,11 @@ public class AdminUI extends JFrame {
         
         // 데이터 삽입 로직, 실행되지 않으면 안내문 출력
         insert.addActionListener(new ActionListener() {
+			@SuppressWarnings("unused")
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				Statement stmt = null;
 				String input = input1.getText();
-				String DEL_UP = input2.getText();
 				String[] parts = input.split("\\s+");  
 				
 				try {
@@ -93,15 +96,11 @@ public class AdminUI extends JFrame {
 				}
 				
 				try {
-					if(DEL_UP == "" && (parts[0] == "insert" || parts[0] == "INSERT" )) {
-						stmt.executeUpdate(input);
-						JOptionPane.showMessageDialog(null, "성공적으로 저장되었습니다.");
-					}
-					else {
-						JOptionPane.showMessageDialog(null, "아래 조건을 지켜주세요\n1) 삽입은 조건절 없이 입력해주세요.\n2) 삽입문만 입력해주세요");
-					}
+					stmt.executeUpdate(input);
+					JOptionPane.showMessageDialog(null, "저장되었습니다.");
 				} catch (SQLException e1) {
 					JOptionPane.showMessageDialog(null, "형식에 맞지 않습니다. 다시 입력해주세요.");
+					System.out.println(e1);
 				}
 			}
 		});
@@ -122,10 +121,15 @@ public class AdminUI extends JFrame {
 				}
 				
 				try {
-					stmt.executeUpdate(sql);
-					JOptionPane.showMessageDialog(null, "성공적으로 삭제/변경 되었습니다.");
+					if(DEL_UP.equals("")) {
+						JOptionPane.showMessageDialog(null, "삭제, 변경은 조건절을 입력해주세요.");
+					}
+					else {
+						stmt.executeUpdate(sql);
+						JOptionPane.showMessageDialog(null, "성공적으로 삭제/변경 되었습니다.");
+					}
 				} catch (SQLException e1) {
-					JOptionPane.showMessageDialog(null, "형식에 맞지 않습니다. 다시 입력해주세요.");
+					JOptionPane.showMessageDialog(null, "형식에 맞지 않거나, 참조 관계에 문제가 있을 수 있습니다.");
 				}
 			}
 		});
@@ -140,7 +144,7 @@ public class AdminUI extends JFrame {
             };
         
         JPanel viewAllPanel = new JPanel(new BorderLayout());
-        JComboBox<String> tableSelector = new JComboBox<>(tableNames); // 테이블 선택
+        JComboBox<String> tableSelector = new JComboBox<>(tableNames);
         JButton viewBtn = new JButton("조회");
         JTable resultTable = new JTable();
         JScrollPane scrollPane = new JScrollPane(resultTable);
@@ -152,8 +156,9 @@ public class AdminUI extends JFrame {
         
         viewBtn.addActionListener(e -> {
             String selectedTable = (String) tableSelector.getSelectedItem();
-            try (Statement stmt = conn.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT * FROM " + selectedTable)) {
+            try (
+            	Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT * FROM " + selectedTable)) {
 
                 ResultSetMetaData meta = rs.getMetaData();
                 int colCount = meta.getColumnCount();
@@ -181,23 +186,224 @@ public class AdminUI extends JFrame {
         });
 
         // 4. 캠핑카 및 정비 내역 보기
-        JPanel vehiclePanel = new JPanel(new BorderLayout());
-        JComboBox<String> vehicleBox = new JComboBox<>(new String[]{"캠핑카1", "캠핑카2"});
-        JTextArea infoArea = new JTextArea(10, 40);
+     // 4. 캠핑카 및 정비 내역 보기
+        Statement stmt = null;
+        ArrayList<String> List = new ArrayList<String>();
+        try {
+            stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT car_name FROM Camping_car");
+            while (rs.next()) {
+                List.add(rs.getString("car_name"));
+            }
+        } catch (SQLException e1) {
+            e1.printStackTrace();
+        }
+
+        JPanel vehiclePanel = new JPanel(new BorderLayout(10, 10));
+        JComboBox<String> vehicleBox = new JComboBox<>(new Vector<>(List));
+
+        JTable internalTable = new JTable();
+        JTable externalTable = new JTable();
+        JTextArea partInfo = new JTextArea(4, 30);
+        JTextArea shopInfo = new JTextArea(4, 30);
+        partInfo.setEditable(false);
+        shopInfo.setEditable(false);
+        partInfo.setBorder(BorderFactory.createTitledBorder("부품 정보"));
+        shopInfo.setBorder(BorderFactory.createTitledBorder("정비소 정보"));
+
+        JPanel tablePanel = new JPanel(new GridLayout(1, 2, 10, 10));
+        tablePanel.add(new JScrollPane(internalTable));
+        tablePanel.add(new JScrollPane(externalTable));
+
+        JPanel infoPanel = new JPanel(new GridLayout(1, 2, 10, 10));
+        infoPanel.add(new JScrollPane(partInfo));
+        infoPanel.add(new JScrollPane(shopInfo));
+
+        vehicleBox.addActionListener(e -> {
+            String carName = (String) vehicleBox.getSelectedItem();
+            if (carName == null) return;
+
+            try (Statement st = conn.createStatement()) {
+                // 자체 정비
+                ResultSet rs1 = st.executeQuery(
+                    "SELECT fix_id, fix_date, fix_time, fix_item_id FROM car_fixlog WHERE fix_car_id = " +
+                    "(SELECT car_id FROM camping_car WHERE car_name = '" + carName + "')"
+                );
+                DefaultTableModel internalModel = new DefaultTableModel(new String[]{"fix_id", "fix_date", "fix_time", "fix_item_id"}, 0);
+                while (rs1.next()) {
+                    internalModel.addRow(new Object[]{
+                        rs1.getInt("fix_id"),
+                        rs1.getDate("fix_date"),
+                        rs1.getInt("fix_time"),
+                        rs1.getInt("fix_item_id")
+                    });
+                }
+                internalTable.setModel(internalModel);
+
+                // 외부 정비
+                ResultSet rs2 = st.executeQuery(
+                    "SELECT repair_id, repair_day, repair_price, repair_repair_shop_id FROM repair WHERE repair_car_id = " +
+                    "(SELECT car_id FROM camping_car WHERE car_name = '" + carName + "')"
+                );
+                DefaultTableModel externalModel = new DefaultTableModel(new String[]{"repair_id", "repair_day", "repair_price", "repair_repair_shop_id"}, 0);
+                while (rs2.next()) {
+                    externalModel.addRow(new Object[]{
+                        rs2.getInt("repair_id"),
+                        rs2.getDate("repair_day"),
+                        rs2.getInt("repair_price"),
+                        rs2.getInt("repair_repair_shop_id")
+                    });
+                }
+                externalTable.setModel(externalModel);
+
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        // 자체 정비 선택 시 → 부품 정보 표시
+        internalTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && internalTable.getSelectedRow() != -1) {
+                int itemId = (int) internalTable.getValueAt(internalTable.getSelectedRow(), 3);
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT item_name, item_price, item_stock, item_store_company FROM car_item WHERE item_id = ?"
+                )) {
+                    ps.setInt(1, itemId);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        partInfo.setText(
+                            "부품명: " + rs.getString("item_name") + "\n" +
+                            "가격: " + rs.getInt("item_price") + "\n" +
+                            "재고: " + rs.getInt("item_stock") + "\n" +
+                            "공급회사: " + rs.getString("item_store_company")
+                        );
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        // 외부 정비 선택 시 → 정비소 정보 표시
+        externalTable.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting() && externalTable.getSelectedRow() != -1) {
+                int shopId = (int) externalTable.getValueAt(externalTable.getSelectedRow(), 3);
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT * FROM car_repair_shop WHERE repair_shop_id = ?"
+                )) {
+                    ps.setInt(1, shopId);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        shopInfo.setText(
+                            "정비소명: " + rs.getString("repair_shop_name") + "\n" +
+                            "주소: " + rs.getString("repair_shop_address") + "\n" +
+                            "전화: " + rs.getString("repair_shop_phone") + "\n" +
+                            "대표자: " + rs.getString("repair_shop_oner") + "\n" +
+                            "이메일: " + rs.getString("repair_shop_oner_email")
+                        );
+                    }
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
         vehiclePanel.add(vehicleBox, BorderLayout.NORTH);
-        vehiclePanel.add(new JScrollPane(infoArea), BorderLayout.CENTER);
+        vehiclePanel.add(tablePanel, BorderLayout.CENTER);
+        vehiclePanel.add(infoPanel, BorderLayout.SOUTH);
         tabs.addTab("정비 내역 조회", vehiclePanel);
+
 
         // 5. 임의 SQL 질의 실행
         JPanel sqlPanel = new JPanel(new BorderLayout());
         JTextArea sqlInput = new JTextArea("", 5, 60);
-        System.out.println(sqlInput.getText());
         JButton runSQL = new JButton("SQL 실행");
         JTable sqlResult = new JTable(10, 5);
         sqlPanel.add(new JScrollPane(sqlInput), BorderLayout.NORTH);
         sqlPanel.add(runSQL, BorderLayout.CENTER);
         sqlPanel.add(new JScrollPane(sqlResult), BorderLayout.SOUTH);
         tabs.addTab("SQL 실행", sqlPanel);
+        
+        //테스팅용 임의 SQL 쿼리문 3개
+        // 1)
+//        SELECT 
+//	        u.user_name,
+//	        cc.company_name,
+//	        COUNT(r.repair_id) AS repair_count,
+//	        AVG(r.repair_price) AS avg_repair_price
+//	    FROM user u
+//	    JOIN repair r ON u.user_id = r.repair_user_license
+//	    JOIN camping_company cc ON r.repair_car_company_id = cc.company_id
+//	    JOIN car_repair_shop crs ON r.repair_repair_shop_id = crs.repair_shop_id
+//	    WHERE r.repair_price > (
+//	        SELECT AVG(repair_price) FROM repair
+//	    )
+//	    GROUP BY u.user_name, cc.company_name;
+//        
+        // 2)
+//        SELECT 
+//	        c.car_name,
+//	        cc.company_name,
+//	        SUM(r.rental_price) AS total_revenue,
+//	        AVG(CAST(r.rental_etc_price AS UNSIGNED)) AS avg_extra_fee
+//	    FROM rental r
+//	    JOIN camping_car c ON r.rental_car_id = c.car_id
+//	    JOIN camping_company cc ON c.car_company_id = cc.company_id
+//	    JOIN user u ON r.rental_user_license = u.user_id
+//	    WHERE r.rental_id IN (
+//	        SELECT rental_id FROM rental WHERE rental_during >= 5
+//	    )
+//	    GROUP BY c.car_name, cc.company_name;
+
+        // 3)
+//        SELECT 
+//	        ci.item_name,
+//	        COUNT(cf.fix_id) AS used_count,
+//	        MAX(cf.fix_date) AS last_used_date,
+//	        ci.item_stock
+//	    FROM car_fixlog cf
+//	    JOIN car_item ci ON cf.fix_item_id = ci.item_id
+//	    JOIN camping_car cc ON cf.fix_car_id = cc.car_id
+//	    JOIN camping_company cco ON cc.car_company_id = cco.company_id
+//	    WHERE cf.fix_date > (
+//	        SELECT DATE_SUB(MAX(fix_date), INTERVAL 6 MONTH) FROM car_fixlog
+//	    )
+//	    GROUP BY ci.item_name, ci.item_stock;
+
+        
+        runSQL.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				String Input_query = sqlInput.getText();
+	            try (
+	            	Statement stmt = conn.createStatement();
+	                ResultSet rs = stmt.executeQuery(Input_query)) {
+
+	                ResultSetMetaData meta = rs.getMetaData();
+	                int colCount = meta.getColumnCount();
+
+	                // 테이블 모델 생성
+	                DefaultTableModel model = new DefaultTableModel();
+	                for (int i = 1; i <= colCount; i++) {
+	                    model.addColumn(meta.getColumnName(i));
+	                }
+
+	                while (rs.next()) {
+	                    Object[] row = new Object[colCount];
+	                    for (int i = 0; i < colCount; i++) {
+	                        row[i] = rs.getObject(i + 1);
+	                    }
+	                    model.addRow(row);
+	                }
+
+	                sqlResult.setModel(model);
+
+	            } catch (SQLException ex) {
+	                JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+	                ex.printStackTrace();
+	            }
+			}
+		});
 
         add(tabs);
         setVisible(true);
