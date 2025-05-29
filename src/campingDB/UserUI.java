@@ -1,6 +1,9 @@
 package campingDB;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Vector;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
@@ -267,16 +270,152 @@ public class UserUI extends JFrame {
         tabs.addTab("대여 일정 변경", changeDatePanel);
 
         // 8. 외부 정비소 의뢰
-        JPanel maintenancePanel = new JPanel(new GridLayout(3, 2, 10, 10));
-        maintenancePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        maintenancePanel.add(new JLabel("정비 요청 캠핑카:"));
-        maintenancePanel.add(new JComboBox<>(new String[]{"캠핑카1", "캠핑카2"}));
-        maintenancePanel.add(new JLabel("정비소 선택:"));
-        maintenancePanel.add(new JComboBox<>(new String[]{"정비소1", "정비소2"}));
-        maintenancePanel.add(new JLabel());
-        maintenancePanel.add(new JButton("정비 의뢰"));
-        tabs.addTab("정비 의뢰", maintenancePanel);
+        ArrayList<String> arr1 = new ArrayList<String>();
+        ArrayList<String> arr2 = new ArrayList<String>();
         
+        // 유저가 예약한 캠핑카에 대해서 선택하기.
+        try (
+        		Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(
+                		"SELECT DISTINCT camping_car.car_name " +
+                		"FROM camping_car JOIN rental ON camping_car.car_id = rental.rental_car_id " +
+                		"WHERE rental.rental_user_license = " + userId
+                )) {
+
+               ResultSetMetaData meta = rs.getMetaData();
+               int colCount = meta.getColumnCount();
+
+               DefaultTableModel model = new DefaultTableModel();
+               for (int i = 1; i <= colCount; i++) {
+                   model.addColumn(meta.getColumnName(i));
+               }
+
+               while (rs.next()) {
+                   Object[] row = new Object[colCount];
+                   for (int i = 0; i < colCount; i++) {
+                       arr1.add(rs.getString("car_name"));
+                   }
+               }
+
+           } catch (SQLException ex) {
+               ex.printStackTrace();
+               JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+           }
+        
+        // 정비소 전체 목록 보여주기
+        try (
+        		Statement st = conn.createStatement();
+                ResultSet rs = st.executeQuery(
+                		"SELECT repair_shop_name FROM car_repair_shop"
+                )) {
+
+               ResultSetMetaData meta = rs.getMetaData();
+               int colCount = meta.getColumnCount();
+
+               DefaultTableModel model = new DefaultTableModel();
+               for (int i = 1; i <= colCount; i++) {
+                   model.addColumn(meta.getColumnName(i));
+               }
+
+               while (rs.next()) {
+                   Object[] row = new Object[colCount];
+                   for (int i = 0; i < colCount; i++) {
+                       arr2.add(rs.getString(1));
+                   }
+               }
+
+           } catch (SQLException ex) {
+               ex.printStackTrace();
+               JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+           }
+        
+        JComboBox<String> car_box = new JComboBox<>(new Vector<String>(arr1));
+        JComboBox<String> repair_box = new JComboBox<>(new Vector<String>(arr2));
+
+        JTextArea contentArea = new JTextArea(5, 40);
+        contentArea.setLineWrap(true);
+        contentArea.setBorder(BorderFactory.createTitledBorder("정비 요청 내용 입력"));
+
+        JButton request = new JButton("정비 의뢰");
+        JPanel repair_panel = new JPanel(new GridLayout(3, 2, 10, 10));
+        repair_panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        repair_panel.add(new JLabel("정비 요청 캠핑카:"));
+        repair_panel.add(car_box);
+        repair_panel.add(new JLabel("정비소 선택:"));
+        repair_panel.add(repair_box);
+        repair_panel.add(new JLabel());
+        repair_panel.add(request);
+
+        JPanel maintenancePanel = new JPanel(new BorderLayout(10, 10));
+        maintenancePanel.add(repair_panel, BorderLayout.NORTH);
+        maintenancePanel.add(new JScrollPane(contentArea), BorderLayout.CENTER);
+        
+        //작성한 정보를 바탕으로 정비 의뢰하기
+        request.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				// 의뢰를 작성할 필수 요건들 => 나머지는 null을 허용하여 나중에 수정 가능 하도록
+				int repairCount = 0, carId = 0, carCompanyId = 0, carRepairShopId = 0;
+				try (
+						// 의뢰 주문서의 id를 동적으로 생성하기.
+		        		Statement st = conn.createStatement();
+		                ResultSet rs = st.executeQuery(
+		                		"SELECT * FROM repair"
+		                )) {
+
+		               while (rs.next()) {
+		                   repairCount++;
+		               }
+		               System.out.println(repairCount);
+		               // 의뢰할 차량 번호와 차 회사 번호
+		               ResultSet rs2 = st.executeQuery(
+		                		"SELECT car_id, car_company_id FROM camping_car WHERE car_name = '" + (String)car_box.getSelectedItem() + "'"
+		                );
+		               
+		               ResultSetMetaData meta2 = rs2.getMetaData();
+		               int colCount = meta2.getColumnCount();
+		               
+		               while (rs2.next()) {
+		                   Object[] row = new Object[colCount];
+		                   for (int i = 0; i < colCount; i++) {
+		                       carId = rs2.getInt(1);
+		                       carCompanyId = rs2.getInt(2);
+		                   }
+		               }
+		               
+		               //의뢰할 외부 수리점 가게 번호
+		               ResultSet rs3 = st.executeQuery(
+		                		"SELECT repair_shop_id FROM car_repair_shop WHERE repair_shop_name = '" + (String)repair_box.getSelectedItem() + "'"
+		                );
+		               
+		               ResultSetMetaData meta3 = rs3.getMetaData();
+		               colCount = meta3.getColumnCount();
+		               
+		               while (rs3.next()) {
+		                   Object[] row = new Object[colCount];
+		                   for (int i = 0; i < colCount; i++) {
+		                       carRepairShopId = rs3.getInt(1);
+		                   }
+		               }
+		               
+		               try {
+		            	   st.executeUpdate("INSERT INTO repair (repair_id, repair_car_id, repair_repair_shop_id, repair_car_company_id, repair_user_license, repair_content)\r\n"
+				               		+ "VALUES ("+ (repairCount + 1) +","+ carId +","+ carRepairShopId +","+ carCompanyId +","+ userId +",'"+ contentArea.getText() +"');\r\n");
+		            	   JOptionPane.showMessageDialog(null, "성공적으로 저장되었습니다.");
+		               }
+		               catch(SQLException ex){
+		            	   JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+		               }
+		           } 
+				catch (SQLException ex) {
+		               ex.printStackTrace();
+		               JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+		           }
+			}
+		});
+
+        tabs.addTab("정비 의뢰", maintenancePanel);
+
         
 
         add(tabs);
