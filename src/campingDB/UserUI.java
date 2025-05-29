@@ -1,9 +1,12 @@
 package campingDB;
 
+import java.time.LocalDate;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -39,14 +42,20 @@ public class UserUI extends JFrame {
         availableDates.setEditable(false);
         availableDates.setBorder(BorderFactory.createTitledBorder("대여 가능 일자"));
 
-        JPanel formPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+     // ⬇️ 기존 대여 입력 폼 확장
+        JPanel formPanel = new JPanel(new GridLayout(3, 2, 10, 10));
         JTextField rentDateField = new JTextField("YYYY-MM-DD");
+        JTextField rentDurationField = new JTextField("3"); // 대여 기간 (일 수)
         JButton rentBtn = new JButton("대여 등록");
         formPanel.setBorder(BorderFactory.createTitledBorder("대여 신청"));
+
         formPanel.add(new JLabel("대여일자:"));
         formPanel.add(rentDateField);
+        formPanel.add(new JLabel("대여 기간 (일):"));
+        formPanel.add(rentDurationField);
         formPanel.add(new JLabel());
         formPanel.add(rentBtn);
+
 
         // 캠핑카 테이블 선택 시 → 대여 가능 일자 표시
         carTable.getSelectionModel().addListSelectionListener(e -> {
@@ -56,6 +65,11 @@ public class UserUI extends JFrame {
                     ResultSet rs = s.executeQuery(
                         "SELECT car_date FROM camping_car WHERE car_name = '" + selectedCarName + "'"
                     );
+                    
+                    ResultSet rs2 = s.executeQuery(
+                            "SELECT rental_start_day, rental_during FROM rental WHERE rental_car_id = ("
+                            + "SELECT car_id FROM Camping_car where car_name =" + selectedCarName + ")"
+                        );
                     if (rs.next()) {
                         availableDates.setText("가능 시작일: " + rs.getDate("car_date").toString());
                     }
@@ -73,8 +87,17 @@ public class UserUI extends JFrame {
                 JOptionPane.showMessageDialog(null, "캠핑카를 먼저 선택하세요.");
                 return;
             }
+
             String selectedCarName = (String) carTable.getValueAt(selectedRow, 1);
             String dateStr = rentDateField.getText().trim();
+            int rentalDays;
+
+            try {
+                rentalDays = Integer.parseInt(rentDurationField.getText().trim());
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(null, "대여 기간은 숫자로 입력해주세요.");
+                return;
+            }
 
             try (Statement s = conn.createStatement()) {
                 ResultSet rs = s.executeQuery("SELECT car_id, car_company_id FROM camping_car WHERE car_name = '" + selectedCarName + "'");
@@ -84,8 +107,8 @@ public class UserUI extends JFrame {
 
                     String insertSql = String.format(
                         "INSERT INTO rental (rental_id, rental_car_id, rental_car_company_id, rental_user_license, rental_start_day, rental_during, rental_price, rental_payment_due_date) " +
-                        "VALUES (NULL, %d, %d, %d, '%s', 3, 100000, '%s')",
-                        carId, companyId, userId, dateStr, dateStr
+                        "VALUES (NULL, %d, %d, %d, '%s', %d, 100000, '%s')",
+                        carId, companyId, userId, dateStr, rentalDays, dateStr
                     );
                     s.executeUpdate(insertSql);
                     JOptionPane.showMessageDialog(null, "대여 등록 완료!");
@@ -95,6 +118,7 @@ public class UserUI extends JFrame {
                 JOptionPane.showMessageDialog(null, "등록 실패: " + ex.getMessage());
             }
         });
+
 
         // 캠핑카 목록 불러오기 버튼
         JButton loadCarBtn = new JButton("캠핑카 목록 불러오기");
@@ -137,21 +161,88 @@ public class UserUI extends JFrame {
         tabs.addTab("캠핑카 대여", rentalPanel);
 
 
-        // 4. 내 대여 정보 보기
-        JPanel myRentInfoPanel = new JPanel(new BorderLayout());
-        JButton myRentsBtn = new JButton("내 대여 내역 조회");
-        JTable myRentTable = new JTable(10, 5);
-        myRentInfoPanel.add(myRentsBtn, BorderLayout.NORTH);
-        myRentInfoPanel.add(new JScrollPane(myRentTable), BorderLayout.CENTER);
-        tabs.addTab("내 대여 정보", myRentInfoPanel);
+     // 4-5 통합: 내 대여 정보 보기 + 선택 삭제
+        JPanel rentInfoPanel = new JPanel(new BorderLayout());
+        JButton loadRentsBtn = new JButton("내 대여 내역 불러오기");
+        JButton deleteSelectedBtn = new JButton("선택한 대여 정보 삭제");
 
-        // 5. 대여 정보 삭제
-        JPanel deleteRentPanel = new JPanel(new BorderLayout());
-        JButton deleteRentBtn = new JButton("선택한 대여 정보 삭제");
-        JTable deleteRentTable = new JTable(10, 5);
-        deleteRentPanel.add(deleteRentBtn, BorderLayout.NORTH);
-        deleteRentPanel.add(new JScrollPane(deleteRentTable), BorderLayout.CENTER);
-        tabs.addTab("대여 정보 삭제", deleteRentPanel);
+        JTable rentInfoTable = new JTable();
+        JScrollPane rentScrollPane = new JScrollPane(rentInfoTable);
+
+        // 상단 버튼 패널
+        JPanel topBtns = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        topBtns.add(loadRentsBtn);
+        topBtns.add(deleteSelectedBtn);
+
+        rentInfoPanel.add(topBtns, BorderLayout.NORTH);
+        rentInfoPanel.add(rentScrollPane, BorderLayout.CENTER);
+        tabs.addTab("내 대여 정보 관리", rentInfoPanel);
+
+        // [불러오기 버튼] 클릭 시 → 내 대여 정보 조회
+        loadRentsBtn.addActionListener(e -> {
+            try (Statement st = conn.createStatement();
+                 ResultSet rs = st.executeQuery(
+                     "SELECT * FROM rental WHERE rental_user_license = " +
+                     "(SELECT user_id FROM user WHERE user_id = " + userId + ")"
+                 )) {
+
+                ResultSetMetaData meta = rs.getMetaData();
+                int colCount = meta.getColumnCount();
+
+                DefaultTableModel model = new DefaultTableModel();
+                for (int i = 1; i <= colCount; i++) {
+                    model.addColumn(meta.getColumnName(i));
+                }
+
+                while (rs.next()) {
+                    Object[] row = new Object[colCount];
+                    for (int i = 0; i < colCount; i++) {
+                        row[i] = rs.getObject(i + 1);
+                    }
+                    model.addRow(row);
+                }
+
+                rentInfoTable.setModel(model);
+
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
+            }
+        });
+
+        // [삭제 버튼] 클릭 시 → 선택된 rental_id 삭제
+        deleteSelectedBtn.addActionListener(e -> {
+            int selectedRow = rentInfoTable.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(null, "삭제할 대여 정보를 선택하세요.");
+                return;
+            }
+
+            Object rentalIdObj = rentInfoTable.getValueAt(selectedRow, 0); // rental_id assumed to be column 0
+            if (rentalIdObj == null) {
+                JOptionPane.showMessageDialog(null, "선택된 행의 rental_id가 없습니다.");
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(null,
+                    "선택한 대여 정보(rental_id=" + rentalIdObj + ")를 삭제하시겠습니까?", "확인",
+                    JOptionPane.YES_NO_OPTION);
+            if (confirm != JOptionPane.YES_OPTION) return;
+
+            try (Statement st = conn.createStatement()) {
+                int result = st.executeUpdate("DELETE FROM rental WHERE rental_id = " + rentalIdObj);
+                if (result > 0) {
+                    JOptionPane.showMessageDialog(null, "삭제 완료!");
+                    ((DefaultTableModel) rentInfoTable.getModel()).removeRow(selectedRow);
+                } else {
+                    JOptionPane.showMessageDialog(null, "삭제할 수 없습니다.");
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(null, "삭제 실패: " + ex.getMessage());
+            }
+        });
+
 
         // 6. 캠핑카 변경
         JPanel changeCarPanel = new JPanel(new GridLayout(3, 2, 10, 10));
@@ -185,17 +276,10 @@ public class UserUI extends JFrame {
         maintenancePanel.add(new JLabel());
         maintenancePanel.add(new JButton("정비 의뢰"));
         tabs.addTab("정비 의뢰", maintenancePanel);
+        
+        
 
         add(tabs);
         setVisible(true);
     }
-    private static void printTable(Statement stmt) throws SQLException {
-		ResultSet srs = stmt.executeQuery("select * from user");
-		while (srs.next()) {
-			System.out.print(srs.getString("user_id"));
-			System.out.print("\t|\t" + srs.getString("user_name"));
-			System.out.println("");
-		}
-		System.out.println("=========================================");
-	}
 }
