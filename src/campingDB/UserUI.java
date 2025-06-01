@@ -11,6 +11,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -27,15 +28,7 @@ public class UserUI extends JFrame {
 
         JTabbedPane tabs = new JTabbedPane();
 
-        // 1. 캠핑카 조회
-        JPanel viewCarsPanel = new JPanel(new BorderLayout());
-        JButton loadCarsBtn = new JButton("캠핑카 목록 조회");
-        JTable carsTable = new JTable(10, 5); // 더미 테이블
-        viewCarsPanel.add(loadCarsBtn, BorderLayout.NORTH);
-        viewCarsPanel.add(new JScrollPane(carsTable), BorderLayout.CENTER);
-        tabs.addTab("캠핑카 조회", viewCarsPanel);
-
-     // 2-3 통합: 캠핑카 조회 + 대여 가능일 확인 + 등록
+     // 1-2-3 통합: 캠핑카 조회 + 대여 가능일 확인 + 등록
         JPanel rentalPanel = new JPanel(new BorderLayout(10, 10));
         JTable carTable = new JTable();
         DefaultTableModel carModel = new DefaultTableModel();
@@ -124,7 +117,7 @@ public class UserUI extends JFrame {
 
 
         // 캠핑카 목록 불러오기 버튼
-        JButton loadCarBtn = new JButton("캠핑카 목록 불러오기");
+        JButton loadCarBtn = new JButton("캠핑카 목록 조회");
         loadCarBtn.addActionListener(e -> {
             try (Statement s = conn.createStatement();
                  ResultSet rs = s.executeQuery("SELECT * FROM camping_car")) {
@@ -176,10 +169,52 @@ public class UserUI extends JFrame {
         JPanel topBtns = new JPanel(new FlowLayout(FlowLayout.LEFT));
         topBtns.add(loadRentsBtn);
         topBtns.add(deleteSelectedBtn);
+        
+        JPanel btmPanel = new JPanel();
+        btmPanel.setLayout(new BoxLayout(btmPanel, BoxLayout.Y_AXIS));
+        
+        JPanel dateChangePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JTextField oldDateField = new JTextField("YYYY-MM-DD", 10);
+        JTextField newDateField = new JTextField("YYYY-MM-DD", 10);
+        JTextField durationField = new JTextField("3", 5);
+        JButton applyChangeBtn = new JButton("일정 변경");
+        
+        dateChangePanel.setBorder(BorderFactory.createTitledBorder("일정 변경"));
+        dateChangePanel.add(new JLabel("기존 일자:"));
+        dateChangePanel.add(oldDateField);
+        dateChangePanel.add(new JLabel("새 일자:"));
+        dateChangePanel.add(newDateField);
+        dateChangePanel.add(new JLabel("기간(일):"));
+        dateChangePanel.add(durationField);
+        dateChangePanel.add(applyChangeBtn);
+        
+        JPanel changeCarPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        changeCarPanel.setBorder(BorderFactory.createTitledBorder("캠핑카 변경"));
 
+        JComboBox<String> oldCarBox = new JComboBox<>(new Vector<>());
+        JComboBox<String> newCarBox = new JComboBox<>(new Vector<>());
+        JTextField changeDateField = new JTextField("YYYY-MM-DD", 10);
+        JTextField changeDurationField = new JTextField("3", 5);
+        JButton changeBtn = new JButton("변경 요청");
+
+        changeCarPanel.add(new JLabel("기존 캠핑카:"));
+        changeCarPanel.add(oldCarBox);
+        changeCarPanel.add(new JLabel("새 캠핑카:"));
+        changeCarPanel.add(newCarBox);
+        changeCarPanel.add(new JLabel("시작일:"));
+        changeCarPanel.add(changeDateField);
+        changeCarPanel.add(new JLabel("기간(일):"));
+        changeCarPanel.add(changeDurationField);
+        changeCarPanel.add(changeBtn);
+        
+        btmPanel.add(dateChangePanel);
+        btmPanel.add(changeCarPanel);
+        
         rentInfoPanel.add(topBtns, BorderLayout.NORTH);
         rentInfoPanel.add(rentScrollPane, BorderLayout.CENTER);
+        rentInfoPanel.add(btmPanel, BorderLayout.SOUTH);
         tabs.addTab("내 대여 정보 관리", rentInfoPanel);
+
 
         // [불러오기 버튼] 클릭 시 → 내 대여 정보 조회
         loadRentsBtn.addActionListener(e -> {
@@ -245,29 +280,60 @@ public class UserUI extends JFrame {
                 JOptionPane.showMessageDialog(null, "삭제 실패: " + ex.getMessage());
             }
         });
+        
+     // [일정변경 버튼] 클릭 시 → 일정을 변경하는 ui 추가
+        applyChangeBtn.addActionListener(e -> {
+            int selectedRow = rentInfoTable.getSelectedRow();
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(null, "일정 변경할 대여 정보를 선택하세요.");
+                return;
+            }
 
+            Object rentalIdObj = rentInfoTable.getValueAt(selectedRow, 0);
+            if (rentalIdObj == null) {
+                JOptionPane.showMessageDialog(null, "선택된 행의 rental_id가 없습니다.");
+                return;
+            }
 
-        // 6. 캠핑카 변경
-        JPanel changeCarPanel = new JPanel(new GridLayout(3, 2, 10, 10));
-        changeCarPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        changeCarPanel.add(new JLabel("기존 대여 캠핑카:"));
-        changeCarPanel.add(new JComboBox<>(new String[]{"캠핑카1", "캠핑카2"}));
-        changeCarPanel.add(new JLabel("변경할 캠핑카:"));
-        changeCarPanel.add(new JComboBox<>(new String[]{"캠핑카3", "캠핑카4"}));
-        changeCarPanel.add(new JLabel());
-        changeCarPanel.add(new JButton("변경 요청"));
-        tabs.addTab("캠핑카 변경", changeCarPanel);
+            String newStartDate = newDateField.getText().trim();
+            String durationText = durationField.getText().trim();
 
-        // 7. 일정 변경
-        JPanel changeDatePanel = new JPanel(new GridLayout(3, 2, 10, 10));
-        changeDatePanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        changeDatePanel.add(new JLabel("기존 대여일자:"));
-        changeDatePanel.add(new JTextField("YYYY-MM-DD"));
-        changeDatePanel.add(new JLabel("새로운 대여일자:"));
-        changeDatePanel.add(new JTextField("YYYY-MM-DD"));
-        changeDatePanel.add(new JLabel());
-        changeDatePanel.add(new JButton("일정 변경"));
-        tabs.addTab("대여 일정 변경", changeDatePanel);
+            if (newStartDate.isEmpty() || durationText.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "새로운 날짜와 기간을 입력하세요.");
+                return;
+            }
+
+            try {
+                int newDuration = Integer.parseInt(durationText);
+
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE rental SET rental_start_day = ?, rental_during = ? WHERE rental_id = ?"
+                )) {
+                    ps.setString(1, newStartDate);
+                    ps.setInt(2, newDuration);
+                    ps.setObject(3, rentalIdObj);
+
+                    int updated = ps.executeUpdate();
+                    if (updated > 0) {
+                        JOptionPane.showMessageDialog(null, "일정이 변경되었습니다.");
+                        loadRentsBtn.doClick(); // 변경된 테이블 새로고침
+                    } else {
+                        JOptionPane.showMessageDialog(null, "일정 변경 실패.");
+                    }
+                }
+
+            } catch (NumberFormatException nfe) {
+                JOptionPane.showMessageDialog(null, "기간은 숫자로 입력하세요.");
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(null, "일정 변경 중 오류 발생: " + ex.getMessage());
+                ex.printStackTrace();
+            }
+        });
+
+        // [변경 요청] 클릭 시 → 캠핑카를 변경하는 ui 추가
+        changeBtn.addActionListener(ev -> {
+        	
+        });
 
         // 8. 외부 정비소 의뢰
         ArrayList<String> arr1 = new ArrayList<String>();
