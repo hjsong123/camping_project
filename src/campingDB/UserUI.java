@@ -10,6 +10,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.lang.reflect.Array;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,7 +19,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 public class UserUI extends JFrame {
-    public UserUI(int userId, Connection conn) {
+    public UserUI(int userId, Connection conn) throws SQLException {
         setTitle("사용자 기능 패널 - ID: " + userId);
         setSize(800, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -174,14 +175,11 @@ public class UserUI extends JFrame {
         btmPanel.setLayout(new BoxLayout(btmPanel, BoxLayout.Y_AXIS));
         
         JPanel dateChangePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JTextField oldDateField = new JTextField("YYYY-MM-DD", 10);
         JTextField newDateField = new JTextField("YYYY-MM-DD", 10);
         JTextField durationField = new JTextField("3", 5);
         JButton applyChangeBtn = new JButton("일정 변경");
         
         dateChangePanel.setBorder(BorderFactory.createTitledBorder("일정 변경"));
-        dateChangePanel.add(new JLabel("기존 일자:"));
-        dateChangePanel.add(oldDateField);
         dateChangePanel.add(new JLabel("새 일자:"));
         dateChangePanel.add(newDateField);
         dateChangePanel.add(new JLabel("기간(일):"));
@@ -190,15 +188,31 @@ public class UserUI extends JFrame {
         
         JPanel changeCarPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         changeCarPanel.setBorder(BorderFactory.createTitledBorder("캠핑카 변경"));
-
-        JComboBox<String> oldCarBox = new JComboBox<>(new Vector<>());
-        JComboBox<String> newCarBox = new JComboBox<>(new Vector<>());
+        
+        //캠핑카를 바꿀때 사용할 캠핑카 목록 가져오기
+        ArrayList<String> newCarList = new ArrayList<String>();
+        Statement st1 = conn.createStatement();
+        ResultSet rs1 = st1.executeQuery("SELECT car_id FROM Camping_car");
+        
+        ResultSetMetaData meta1 = rs1.getMetaData();
+        int colCount1 = meta1.getColumnCount();
+        
+        DefaultTableModel model1 = new DefaultTableModel();
+        for (int i = 1; i <= colCount1; i++) {
+            model1.addColumn(meta1.getColumnName(i));
+        }
+        
+        while (rs1.next()) {
+            newCarList.add(rs1.getString(1));
+        }
+        
+        ArrayList<String> oldCarList = new ArrayList<String>();
+        
+        JComboBox<String> newCarBox = new JComboBox<>(new Vector<>(newCarList));
         JTextField changeDateField = new JTextField("YYYY-MM-DD", 10);
         JTextField changeDurationField = new JTextField("3", 5);
         JButton changeBtn = new JButton("변경 요청");
 
-        changeCarPanel.add(new JLabel("기존 캠핑카:"));
-        changeCarPanel.add(oldCarBox);
         changeCarPanel.add(new JLabel("새 캠핑카:"));
         changeCarPanel.add(newCarBox);
         changeCarPanel.add(new JLabel("시작일:"));
@@ -241,7 +255,7 @@ public class UserUI extends JFrame {
                 }
 
                 rentInfoTable.setModel(model);
-
+                
             } catch (SQLException ex) {
                 ex.printStackTrace();
                 JOptionPane.showMessageDialog(null, "조회 실패: " + ex.getMessage());
@@ -332,7 +346,20 @@ public class UserUI extends JFrame {
 
         // [변경 요청] 클릭 시 → 캠핑카를 변경하는 ui 추가
         changeBtn.addActionListener(ev -> {
-        	
+        	int selectedRow = rentInfoTable.getSelectedRow();
+        	Object rentalIdObj; // 변경할 차 id
+        	String newCarNum = (String) newCarBox.getSelectedItem(); //변경하려는 차의 id
+            
+            if (selectedRow == -1) {
+                JOptionPane.showMessageDialog(null, "일정 변경할 대여 정보를 선택하세요.");
+                return;
+            }
+
+            rentalIdObj = rentInfoTable.getValueAt(selectedRow, 0);
+            if (rentalIdObj == null) {
+                JOptionPane.showMessageDialog(null, "선택된 행의 rental_id가 없습니다.");
+                return;
+            }
         });
 
         // 8. 외부 정비소 의뢰
