@@ -21,16 +21,24 @@
 
 
 ### 2. ERD 구성
-![ERD](https://github.com/user-attachments/assets/5ed4cc9a-e669-4446-a2f2-e2409a6cf24f)
+![ERD](https://github.com/user-attachments/assets/5ed4cc9a-e669-4446-a2f2-e2409a6cf24f)<br>
 각 릴레이션 별 관계는 다음과 같다. 
 
 ### 3. 로그인 
+![](https://github.com/user-attachments/assets/c1d6ee2e-2e82-47f4-ac00-1f2404026700)<br>
+![](https://github.com/user-attachments/assets/004a7a19-0416-400a-80ed-f9831eef416e)<br>
 관리자를 선택 할 경우, 워크벤치의 root유저로 자동으로 접속합니다. 
 유저를 선택한 경우에는 User테이블를 조회하여 해당 아이디와 비밀번호가 맞는지 조회합니다. 맞는 경우, 워크벤치의 user1 계정으로 접속합니다. 
 원래라면 SQL에 그대로 적용하는 것이 아닌 Hash Function을 이용하여 보안을 강화했겠지만 개발 편의 & 시간 문제로 그대로 저장했습니다. 
 N번째 일반 유저의 아이디, 비번은 userN, passN으로 구성되어 있습니다. 
 
 ### 4. 관리자 기능
+![Image](https://github.com/user-attachments/assets/b64c70ab-4b45-4f3d-aafc-451f5dd7306a)<br>
+![Image](https://github.com/user-attachments/assets/1bee160a-1f28-4956-a8d8-78e73d3e2ff0)<br>
+![Image](https://github.com/user-attachments/assets/14b52002-d809-41f5-ab91-86ec624c7868)<br>
+![Image](https://github.com/user-attachments/assets/e3dceea5-83ea-4720-a09e-7945bcd45a8c)<br>
+![Image](https://github.com/user-attachments/assets/e2840ae2-7d61-4da4-8e7b-fa4a32d56048)<br>
+
 관리자는 크게 5가지 기능으로 구성됩니다. 
 1. 전체 데이터 베이스 초기화
 2. 데이터의 삽입, 삭제, 변경
@@ -48,6 +56,10 @@ N번째 일반 유저의 아이디, 비번은 userN, passN으로 구성되어 �
 
 
 ### 5. 일반 유저 기능
+![Image](https://github.com/user-attachments/assets/22744d72-55ef-4c40-9795-3a787943bb9d)<br>
+![Image](https://github.com/user-attachments/assets/339a1047-13f2-4180-87f1-1dbd5c433bfd)<br>
+![Image](https://github.com/user-attachments/assets/4a479e38-05be-4a72-ad03-e1c6fb50bf0b)<br>
+
 일반유저의 기능은 크게 다음과 같이 구성됩니다.
 1. 캠핑카 조회 기능
 2. 위에서 조회한 캠핑카에 대하여 대여 가능 일자를 보여주는 기능
