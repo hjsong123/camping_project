@@ -21,7 +21,7 @@
 
 
 ### 2. ERD 구성
-![ERD](imgs/캡처.png)
+![ERD](https://github.com/user-attachments/assets/5ed4cc9a-e669-4446-a2f2-e2409a6cf24f)
 각 릴레이션 별 관계는 다음과 같다. 
 
 ### 3. 로그인 
